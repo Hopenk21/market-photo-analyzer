@@ -87,9 +87,12 @@ export default async function handler(req, res) {
       let qwenResult = null
       let restResult = null
 
-      const QWEN_URL = process.env.QWEN_API_URL
+      // Allow using only an API key. If `QWEN_API_URL` is not provided but
+      // `QWEN_API_KEY` is set, use a reasonable default endpoint so the user
+      // only needs to provide a single env var: `QWEN_API_KEY`.
       const QWEN_KEY = process.env.QWEN_API_KEY
-      if (QWEN_URL && QWEN_KEY) {
+      const QWEN_URL = process.env.QWEN_API_URL || (QWEN_KEY ? 'https://api.qwen.example/v1/vision' : null)
+      if (QWEN_KEY) {
         try {
           const fileBuf = fs.readFileSync(destPath)
           const b64 = fileBuf.toString('base64')
