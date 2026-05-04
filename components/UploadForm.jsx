@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/router'
 
 export default function UploadForm({ onResult }) {
   const [file, setFile] = useState(null)
@@ -7,6 +8,7 @@ export default function UploadForm({ onResult }) {
   const [loading, setLoading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const inputRef = useRef(null)
+  const router = useRouter()
 
   const handleFiles = useCallback((f) => {
     const first = f?.[0]
@@ -16,6 +18,12 @@ export default function UploadForm({ onResult }) {
     const url = URL.createObjectURL(first)
     setPreview(url)
   }, [])
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview)
+    }
+  }, [preview])
 
   function handleChange(e) {
     handleFiles(e.target.files)
@@ -50,6 +58,14 @@ export default function UploadForm({ onResult }) {
       const data = await res.json()
       setResult(data)
       if (typeof onResult === 'function') onResult(data)
+      try {
+        // store last analysis in sessionStorage for feedback page
+        if (typeof window !== 'undefined') sessionStorage.setItem('lastAnalysis', JSON.stringify(data))
+      } catch (e) {
+        console.error('sessionStorage save failed', e)
+      }
+      // navigate to feedback page
+      router.push('/feedback')
     } catch (err) {
       setResult({ error: String(err) })
     } finally {
