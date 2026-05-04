@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
 const formidable = require('formidable')
 const sharp = require('sharp')
 
@@ -16,8 +17,12 @@ function getFilePath(file) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
 
-  const uploadDir = path.join(process.cwd(), 'uploads')
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
+  // Use ephemeral temp dir when S3 is not configured (safer for serverless deployments).
+  const S3_BUCKET = process.env.S3_BUCKET
+  const uploadDir = S3_BUCKET ? path.join(process.cwd(), 'uploads') : os.tmpdir()
+  if (S3_BUCKET) {
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
+  }
 
   const form = formidable({ multiples: false, uploadDir, keepExtensions: true })
 

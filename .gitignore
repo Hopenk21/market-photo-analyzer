@@ -5,3 +5,5 @@ uploads/
 .env.local
 dist/
 npm-debug.log
+.vercel
+.env*.local
