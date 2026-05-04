@@ -87,20 +87,26 @@ export default async function handler(req, res) {
       let qwenResult = null
       let restResult = null
 
-      // Allow using only an API key. If `QWEN_API_URL` is not provided but
-      // `QWEN_API_KEY` is set, use a reasonable default endpoint so the user
-      // only needs to provide a single env var: `QWEN_API_KEY`.
+      // QWEN integration: only call if both KEY and URL are provided. Previously
+      // we attempted to call a placeholder URL when only the key was present,
+      // which produced confusing `request_failed` errors. Prefer a clear message
+      // and fall back to local strategies when URL is missing.
       const QWEN_KEY = process.env.QWEN_API_KEY
-      const QWEN_URL = process.env.QWEN_API_URL || (QWEN_KEY ? 'https://api.qwen.example/v1/vision' : null)
+      const QWEN_URL = process.env.QWEN_API_URL
       if (QWEN_KEY) {
-        try {
-          const fileBuf = fs.readFileSync(destPath)
-          const b64 = fileBuf.toString('base64')
-          const payload = { model: 'qwen-3.0-vl', inputs: [{ type: 'image_base64', data: b64, mime: 'image/jpeg' }, { type: 'text', text: 'Analyze this forex chart screenshot: extract indicators (RSI, MACD), patterns, prices and recommend BUY/SELL/HOLD with confidence.' }] }
-          const qres = await fetch(QWEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${QWEN_KEY}` }, body: JSON.stringify(payload) })
-          if (qres.ok) qwenResult = await qres.json()
-          else { console.error('qwen error', qres.status); qwenResult = { error: `status ${qres.status}` } }
-        } catch (e) { console.error('qwen request failed', e); qwenResult = { error: 'request_failed' } }
+        if (!QWEN_URL) {
+          console.warn('QWEN_API_KEY provided but QWEN_API_URL is missing — skipping remote call')
+          qwenResult = { error: 'missing_qwen_url', message: 'QWEN_API_URL is not set; skipping remote analysis. Provide QWEN_API_URL to enable provider calls.' }
+        } else {
+          try {
+            const fileBuf = fs.readFileSync(destPath)
+            const b64 = fileBuf.toString('base64')
+            const payload = { model: 'qwen-3.0-vl', inputs: [{ type: 'image_base64', data: b64, mime: 'image/jpeg' }, { type: 'text', text: 'Analyze this forex chart screenshot: extract indicators (RSI, MACD), patterns, prices and recommend BUY/SELL/HOLD with confidence.' }] }
+            const qres = await fetch(QWEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${QWEN_KEY}` }, body: JSON.stringify(payload) })
+            if (qres.ok) qwenResult = await qres.json()
+            else { console.error('qwen error', qres.status); qwenResult = { error: `status ${qres.status}` } }
+          } catch (e) { console.error('qwen request failed', e); qwenResult = { error: 'request_failed' } }
+        }
       }
 
       const REST_URL = process.env.REST_ANALYSIS_URL
