@@ -1,3 +1,5 @@
+import UploadForm from '../components/UploadForm'
+
 export default function MarketPhotoAnalyzer() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -33,7 +35,7 @@ export default function MarketPhotoAnalyzer() {
           </p>
 
           <div className="flex flex-wrap gap-4 mt-8">
-            <button className="px-7 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold transition-all shadow-2xl shadow-emerald-500/20">Start Analyzing</button>
+            <a href="#upload-section" className="px-7 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold transition-all shadow-2xl shadow-emerald-500/20">Start Analyzing</a>
 
             <button className="px-7 py-4 rounded-2xl border border-slate-700 hover:bg-slate-800 transition-all">View Demo</button>
           </div>
@@ -60,7 +62,7 @@ export default function MarketPhotoAnalyzer() {
         <div className="relative">
           <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full"></div>
 
-          <div className="relative bg-slate-900/80 border border-slate-800 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl">
+          <div id="upload-section" className="relative bg-slate-900/80 border border-slate-800 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-bold">Upload Chart Screenshot</h2>
@@ -70,46 +72,45 @@ export default function MarketPhotoAnalyzer() {
               <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-2xl">📈</div>
             </div>
 
-            <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 transition-all rounded-3xl p-12 text-center bg-slate-950/40">
+            <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 transition-all rounded-3xl p-6 text-center bg-slate-950/40">
               <div className="text-6xl mb-4">☁️</div>
 
               <h3 className="text-xl font-semibold">Drag & Drop Chart Image</h3>
 
-              <p className="text-slate-400 mt-2 mb-6">Or click below to upload your forex chart screenshot</p>
+              <p className="text-slate-400 mt-2 mb-4">Or click below to upload your forex chart screenshot</p>
 
-              <label className="inline-flex items-center px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold cursor-pointer transition-all shadow-lg shadow-emerald-500/20">
-                Choose File
-                <input type="file" className="hidden" />
-              </label>
+              <div className="max-w-full">
+                <UploadForm />
+              </div>
             </div>
 
-            {/* Analysis Cards */}
-            <div className="grid grid-cols-2 gap-4 mt-8">
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
+            {/* Results area will be rendered by UploadForm; keep placeholder cards for initial state */}
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5" aria-hidden>
                 <p className="text-slate-400 text-sm">RSI</p>
-                <h3 className="text-2xl font-bold mt-2">72</h3>
-                <span className="text-red-400 text-sm">Overbought</span>
+                <h3 className="text-2xl font-bold mt-2">—</h3>
+                <span className="text-slate-400 text-sm">Waiting for upload</span>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5" aria-hidden>
                 <p className="text-slate-400 text-sm">MACD</p>
-                <h3 className="text-2xl font-bold mt-2 text-emerald-400">Bullish</h3>
-                <span className="text-emerald-400 text-sm">Positive Momentum</span>
+                <h3 className="text-2xl font-bold mt-2">—</h3>
+                <span className="text-slate-400 text-sm">Waiting for upload</span>
               </div>
             </div>
 
-            <div className="mt-6 bg-gradient-to-r from-emerald-500 to-green-400 rounded-2xl p-6 text-black">
+            <div className="mt-6 bg-gradient-to-r from-emerald-500 to-green-400 rounded-2xl p-6 text-black" aria-hidden>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold opacity-80">AI Trade Signal</p>
 
-                  <h2 className="text-4xl font-black mt-2">BUY</h2>
+                  <h2 className="text-4xl font-black mt-2">—</h2>
                 </div>
 
                 <div className="text-right">
                   <p className="font-semibold opacity-80">Confidence</p>
 
-                  <h3 className="text-3xl font-black mt-2">87%</h3>
+                  <h3 className="text-3xl font-black mt-2">—</h3>
                 </div>
               </div>
             </div>
