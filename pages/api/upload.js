@@ -17,7 +17,6 @@ function getFilePath(file) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
 
-  // Use ephemeral temp dir when S3 is not configured (safer for serverless deployments).
   const S3_BUCKET = process.env.S3_BUCKET
   const uploadDir = S3_BUCKET ? path.join(process.cwd(), 'uploads') : os.tmpdir()
   if (S3_BUCKET) {
@@ -41,13 +40,12 @@ export default async function handler(req, res) {
       const destPath = path.join(uploadDir, filename)
 
       if (filePath !== destPath) {
-        try { fs.renameSync(filePath, destPath) } catch (e) { /* ignore if already moved */ }
+        try { fs.renameSync(filePath, destPath) } catch (e) { /* ignore */ }
       }
 
-      // Local image summary (basic analysis)
+      // Basic local analysis
       const image = sharp(destPath)
       const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true })
-
       const pixels = info.width * info.height
       const channels = info.channels
       const sums = new Array(channels).fill(0)
@@ -55,7 +53,6 @@ export default async function handler(req, res) {
         for (let c = 0; c < channels; c++) sums[c] += data[i + c]
       }
       const avg = sums.map(s => Math.round(s / pixels))
-
       const avgColor = { r: avg[0], g: avg[1], b: avg[2], a: channels >= 4 ? avg[3] : 255 }
 
       const analysis = {
@@ -67,8 +64,7 @@ export default async function handler(req, res) {
         note: 'Prototype result: use a vision API for production-grade market analysis.'
       }
 
-      // If S3 credentials are configured, upload the file to S3 and include the public URL.
-      const S3_BUCKET = process.env.S3_BUCKET
+      // Optional S3 upload
       const AWS_REGION = process.env.AWS_REGION
       const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID
       const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY
@@ -76,86 +72,59 @@ export default async function handler(req, res) {
         try {
           const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
           const { v4: uuidv4 } = require('uuid')
-
-          const client = new S3Client({
-            region: AWS_REGION,
-            credentials: {
-              accessKeyId: AWS_ACCESS_KEY_ID,
-              secretAccessKey: AWS_SECRET_ACCESS_KEY,
-            },
-          })
-
+          const client = new S3Client({ region: AWS_REGION, credentials: { accessKeyId: AWS_ACCESS_KEY_ID, secretAccessKey: AWS_SECRET_ACCESS_KEY } })
           const buffer = fs.readFileSync(destPath)
           const key = `uploads/${uuidv4()}-${filename}`
-          const contentType = (file.mimetype || 'image/jpeg')
-
-          await client.send(new PutObjectCommand({
-            Bucket: S3_BUCKET,
-            Key: key,
-            Body: buffer,
-            ContentType: contentType,
-            ACL: 'public-read'
-          }))
-
-          // Construct URL — for AWS S3 standard URL pattern. If you use another S3-compatible service adjust accordingly.
-          const s3Url = `https://${S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${key}`
-          analysis.storage = { provider: 's3', url: s3Url }
+          await client.send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: buffer, ContentType: file.mimetype || 'image/jpeg', ACL: 'public-read' }))
+          analysis.storage = { provider: 's3', url: `https://${S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${key}` }
         } catch (e) {
           console.error('s3 upload failed', e)
           analysis.storage = { provider: 's3', error: 'upload_failed' }
         }
       }
 
-      // If QWEN integration is configured, send the image for richer analysis.
+      // Provider analysis: QWEN and generic REST
+      let qwenResult = null
+      let restResult = null
+
       const QWEN_URL = process.env.QWEN_API_URL
       const QWEN_KEY = process.env.QWEN_API_KEY
       if (QWEN_URL && QWEN_KEY) {
         try {
           const fileBuf = fs.readFileSync(destPath)
           const b64 = fileBuf.toString('base64')
-
-          const payload = {
-            model: 'qwen-3.0-vl',
-            inputs: [
-              {
-                type: 'image_base64',
-                data: b64,
-                mime: 'image/jpeg'
-              },
-              {
-                type: 'text',
-                text: 'Analyze this market photo: identify visible products, signage/text, likely prices, and summarize market indicators.'
-              }
-            ]
-          }
-
-          const qres = await fetch(QWEN_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${QWEN_KEY}`
-            },
-            body: JSON.stringify(payload),
-            // timeout handled by hosting environment / runtime
-          })
-
-          if (qres.ok) {
-            const qjson = await qres.json()
-            // attach provider result alongside local analysis
-            return res.status(200).json({ analysis, provider: { name: 'qwen', raw: qjson } })
-          } else {
-            const text = await qres.text()
-            console.error('qwen error', qres.status, text)
-            return res.status(200).json({ analysis, provider: { name: 'qwen', error: `status ${qres.status}` } })
-          }
-        } catch (e) {
-          console.error('qwen request failed', e)
-          return res.status(200).json({ analysis, provider: { name: 'qwen', error: 'request_failed' } })
-        }
+          const payload = { model: 'qwen-3.0-vl', inputs: [{ type: 'image_base64', data: b64, mime: 'image/jpeg' }, { type: 'text', text: 'Analyze this forex chart screenshot: extract indicators (RSI, MACD), patterns, prices and recommend BUY/SELL/HOLD with confidence.' }] }
+          const qres = await fetch(QWEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${QWEN_KEY}` }, body: JSON.stringify(payload) })
+          if (qres.ok) qwenResult = await qres.json()
+          else { console.error('qwen error', qres.status); qwenResult = { error: `status ${qres.status}` } }
+        } catch (e) { console.error('qwen request failed', e); qwenResult = { error: 'request_failed' } }
       }
 
-      // Fallback: return local prototype analysis
-      return res.status(200).json({ analysis })
+      const REST_URL = process.env.REST_ANALYSIS_URL
+      const REST_KEY = process.env.REST_ANALYSIS_KEY
+      if (REST_URL) {
+        try {
+          const fileBuf = fs.readFileSync(destPath)
+          const b64 = fileBuf.toString('base64')
+          const restPayload = { filename, image_base64: b64 }
+          const restRes = await fetch(REST_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(REST_KEY ? { Authorization: `Bearer ${REST_KEY}` } : {}) }, body: JSON.stringify(restPayload) })
+          if (restRes.ok) restResult = await restRes.json()
+          else { console.error('rest analysis error', restRes.status); restResult = { error: `status ${restRes.status}` } }
+        } catch (e) { console.error('rest analysis request failed', e); restResult = { error: 'request_failed' } }
+      }
+
+      // Decide suggested trade using strategy library
+      const { decideTrade } = require('../../lib/strategies')
+      const indicators = (restResult && restResult.indicators) || (qwenResult && qwenResult.indicators) || analysis.indicators || {}
+      const patterns = (restResult && restResult.patterns) || (qwenResult && qwenResult.patterns) || analysis.patterns || []
+      const prices = (restResult && restResult.prices) || (qwenResult && qwenResult.prices) || analysis.prices || {}
+      const suggested = decideTrade({ indicators, patterns, prices })
+
+      if (restResult && !restResult.suggested_trade) restResult.suggested_trade = suggested
+      if (qwenResult && !qwenResult.suggested_trade) qwenResult.suggested_trade = suggested
+      analysis.suggested_trade = analysis.suggested_trade || suggested
+
+      return res.status(200).json({ analysis, provider: { qwen: qwenResult, rest: restResult } })
     } catch (e) {
       console.error(e)
       return res.status(500).json({ error: 'processing_failed' })
