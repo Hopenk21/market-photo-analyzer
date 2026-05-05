@@ -4,8 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "test": "jest --runInBand",
     "build": "next build",
     "start": "next start -p 3000"
+  },
+  "devDependencies": {
+    "jest": "^29.6.1",
+    "@types/jest": "^29.5.3"
   },
   "dependencies": {
     "next": "^13.4.10",

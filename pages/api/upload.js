@@ -83,8 +83,19 @@ export default async function handler(req, res) {
         }
       }
 
-      // Local-only analysis: use internal strategy library to produce a
-      // suggested trade. No external provider calls are performed.
+      // Local-only analysis: parse the image for indicators and prices
+      // (prototype parser) and use the internal strategy library to produce
+      // a suggested trade. No external provider calls are performed.
+      try {
+        const { parseChartImage } = require('../../lib/chartParser')
+        const parsed = await parseChartImage(destPath)
+        analysis.indicators = parsed.indicators || analysis.indicators || {}
+        analysis.prices = parsed.prices || analysis.prices || {}
+        analysis.patterns = parsed.patterns || analysis.patterns || []
+      } catch (e) {
+        console.error('chart parsing failed', e)
+      }
+
       const { decideTrade } = require('../../lib/strategies')
       const indicators = analysis.indicators || {}
       const patterns = analysis.patterns || []

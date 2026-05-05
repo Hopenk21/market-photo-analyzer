@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import UploadForm from '../components/UploadForm'
 
 export default function MarketPhotoAnalyzer() {
+  const [live, setLive] = useState(null)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       {/* Navbar */}
@@ -80,37 +83,37 @@ export default function MarketPhotoAnalyzer() {
               <p className="text-slate-400 mt-2 mb-4">Or click below to upload your forex chart screenshot</p>
 
               <div className="max-w-full">
-                <UploadForm />
+                <UploadForm onResult={(data) => setLive(data.analysis)} />
               </div>
             </div>
 
             {/* Results area will be rendered by UploadForm; keep placeholder cards for initial state */}
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5" aria-hidden>
+              <div className="grid grid-cols-2 gap-4 mt-6">
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
                 <p className="text-slate-400 text-sm">RSI</p>
-                <h3 className="text-2xl font-bold mt-2">—</h3>
-                <span className="text-slate-400 text-sm">Waiting for upload</span>
+                <h3 className="text-2xl font-bold mt-2">{live?.indicators?.rsi ?? '—'}</h3>
+                <span className="text-slate-400 text-sm">{live ? (live.indicators?.rsi >= 70 ? 'Overbought' : live.indicators?.rsi <= 30 ? 'Oversold' : 'Neutral') : 'Waiting for upload'}</span>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5" aria-hidden>
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
                 <p className="text-slate-400 text-sm">MACD</p>
-                <h3 className="text-2xl font-bold mt-2">—</h3>
-                <span className="text-slate-400 text-sm">Waiting for upload</span>
+                <h3 className={`text-2xl font-bold mt-2 ${live?.indicators?.macd?.toLowerCase?.() === 'bullish' ? 'text-emerald-400' : 'text-red-400'}`}>{live?.indicators?.macd ?? '—'}</h3>
+                <span className="text-slate-400 text-sm">{live ? (live.indicators?.macd ? (live.indicators.macd) : 'N/A') : 'Waiting for upload'}</span>
               </div>
             </div>
 
-            <div className="mt-6 bg-gradient-to-r from-emerald-500 to-green-400 rounded-2xl p-6 text-black" aria-hidden>
+            <div className="mt-6 bg-gradient-to-r from-emerald-500 to-green-400 rounded-2xl p-6 text-black">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold opacity-80">AI Trade Signal</p>
 
-                  <h2 className="text-4xl font-black mt-2">—</h2>
+                  <h2 className="text-4xl font-black mt-2">{live?.suggested_trade?.action ?? '—'}</h2>
                 </div>
 
                 <div className="text-right">
                   <p className="font-semibold opacity-80">Confidence</p>
 
-                  <h3 className="text-3xl font-black mt-2">—</h3>
+                  <h3 className="text-3xl font-black mt-2">{live ? Math.round((live.suggested_trade?.confidence ?? 0) * 100) + '%' : '—'}</h3>
                 </div>
               </div>
             </div>
