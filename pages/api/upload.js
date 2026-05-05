@@ -94,17 +94,8 @@ export default async function handler(req, res) {
       const QWEN_KEY = process.env.QWEN_API_KEY
       let QWEN_URL = process.env.QWEN_API_URL
 
-      // If the user only provides an API key, use a sensible default public
-      // endpoint so they don't have to set an extra env var. This keeps the
-      // configuration minimal (only `QWEN_API_KEY`) while allowing remote
-      // analysis to work out-of-the-box. If you prefer not to include any URL
-      // in code, override `QWEN_API_URL` in your deployment.
-      const DEFAULT_QWEN_URL = 'https://api.qwen.ai/v1/vision'
-      if (QWEN_KEY && !QWEN_URL) {
-        console.info('QWEN_API_KEY present; using default QWEN endpoint')
-        QWEN_URL = DEFAULT_QWEN_URL
-      }
-
+      // Require both `QWEN_API_KEY` and `QWEN_API_URL` for remote calls. If the
+      // URL is missing we skip provider calls and fallback to local strategies.
       if (QWEN_KEY) {
         if (!QWEN_URL) {
           console.warn('QWEN_API_KEY provided but QWEN_API_URL is missing — skipping remote call')
