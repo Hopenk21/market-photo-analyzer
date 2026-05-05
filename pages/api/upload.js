@@ -83,60 +83,16 @@ export default async function handler(req, res) {
         }
       }
 
-      // Provider analysis: QWEN and generic REST
-      let qwenResult = null
-      let restResult = null
-
-      // QWEN integration: only call if both KEY and URL are provided. Previously
-      // we attempted to call a placeholder URL when only the key was present,
-      // which produced confusing `request_failed` errors. Prefer a clear message
-      // and fall back to local strategies when URL is missing.
-      const QWEN_KEY = process.env.QWEN_API_KEY
-      let QWEN_URL = process.env.QWEN_API_URL
-
-      // Require both `QWEN_API_KEY` and `QWEN_API_URL` for remote calls. If the
-      // URL is missing we skip provider calls and fallback to local strategies.
-      if (QWEN_KEY) {
-        if (!QWEN_URL) {
-          console.warn('QWEN_API_KEY provided but QWEN_API_URL is missing — skipping remote call')
-          qwenResult = { error: 'missing_qwen_url', message: 'QWEN_API_URL is not set; skipping remote analysis. Provide QWEN_API_URL to enable provider calls.' }
-        } else {
-          try {
-            const fileBuf = fs.readFileSync(destPath)
-            const b64 = fileBuf.toString('base64')
-            const payload = { model: 'qwen-3.0-vl', inputs: [{ type: 'image_base64', data: b64, mime: 'image/jpeg' }, { type: 'text', text: 'Analyze this forex chart screenshot: extract indicators (RSI, MACD), patterns, prices and recommend BUY/SELL/HOLD with confidence.' }] }
-            const qres = await fetch(QWEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${QWEN_KEY}` }, body: JSON.stringify(payload) })
-            if (qres.ok) qwenResult = await qres.json()
-            else { console.error('qwen error', qres.status); qwenResult = { error: `status ${qres.status}` } }
-          } catch (e) { console.error('qwen request failed', e); qwenResult = { error: 'request_failed' } }
-        }
-      }
-
-      const REST_URL = process.env.REST_ANALYSIS_URL
-      const REST_KEY = process.env.REST_ANALYSIS_KEY
-      if (REST_URL) {
-        try {
-          const fileBuf = fs.readFileSync(destPath)
-          const b64 = fileBuf.toString('base64')
-          const restPayload = { filename, image_base64: b64 }
-          const restRes = await fetch(REST_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(REST_KEY ? { Authorization: `Bearer ${REST_KEY}` } : {}) }, body: JSON.stringify(restPayload) })
-          if (restRes.ok) restResult = await restRes.json()
-          else { console.error('rest analysis error', restRes.status); restResult = { error: `status ${restRes.status}` } }
-        } catch (e) { console.error('rest analysis request failed', e); restResult = { error: 'request_failed' } }
-      }
-
-      // Decide suggested trade using strategy library
+      // Local-only analysis: use internal strategy library to produce a
+      // suggested trade. No external provider calls are performed.
       const { decideTrade } = require('../../lib/strategies')
-      const indicators = (restResult && restResult.indicators) || (qwenResult && qwenResult.indicators) || analysis.indicators || {}
-      const patterns = (restResult && restResult.patterns) || (qwenResult && qwenResult.patterns) || analysis.patterns || []
-      const prices = (restResult && restResult.prices) || (qwenResult && qwenResult.prices) || analysis.prices || {}
+      const indicators = analysis.indicators || {}
+      const patterns = analysis.patterns || []
+      const prices = analysis.prices || {}
       const suggested = decideTrade({ indicators, patterns, prices })
-
-      if (restResult && !restResult.suggested_trade) restResult.suggested_trade = suggested
-      if (qwenResult && !qwenResult.suggested_trade) qwenResult.suggested_trade = suggested
       analysis.suggested_trade = analysis.suggested_trade || suggested
 
-      return res.status(200).json({ analysis, provider: { qwen: qwenResult, rest: restResult } })
+      return res.status(200).json({ analysis })
     } catch (e) {
       console.error(e)
       return res.status(500).json({ error: 'processing_failed' })
